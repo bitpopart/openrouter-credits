@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>OpenRouter Credits</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --card2:#1c2129; --line:#2b313c;
+    --txt:#e6edf3; --mut:#8b949e; --acc:#f0a000; --acc2:#ffd75e; --ok:#3fb950; --err:#f85149;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       background:radial-gradient(1200px 600px at 50% -10%,#1a212c 0%,var(--bg) 55%);
+       color:var(--txt);min-height:100vh;padding:32px 16px}
+  .wrap{max-width:720px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 4px;letter-spacing:.3px}
+  .sub{color:var(--mut);font-size:13px;margin:0 0 20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:20px;margin-bottom:18px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  input[type=password],input[type=text]{flex:1;min-width:220px;background:var(--card2);
+        border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:10px 12px;font-size:14px}
+  input:focus{outline:none;border-color:var(--acc)}
+  button{background:var(--acc);color:#1a1200;border:0;border-radius:8px;padding:10px 16px;
+         font-weight:700;font-size:14px;cursor:pointer}
+  button.secondary{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
+  .hint{color:var(--mut);font-size:12px;margin-top:10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .stat{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .stat .label{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .stat .value{font-size:22px;font-weight:700}
+  .stat .value small{font-size:12px;font-weight:500;color:var(--mut)}
+  .big{font-size:30px}
+  .bar{height:8px;background:#0a0d12;border-radius:999px;overflow:hidden;margin-top:8px}
+  .bar>div{height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:999px}
+  .bar.warn>div{background:linear-gradient(90deg,#e08b00,#f85149)}
+  .foot{color:var(--mut);font-size:12px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .err{color:var(--err);font-size:13px;margin-top:12px;white-space:pre-wrap}
+  .ok{color:var(--ok)}
+  .pill{font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+  select{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mut);margin-right:6px;vertical-align:middle}
+  .dot.on{background:var(--ok)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⛓ OpenRouter Credits</h1>
+  <p class="sub">Live balance for your OpenRouter account — fetches straight from the API.</p>
+
+  <div class="card">
+    <div class="row">
+      <input type="password" id="key" placeholder="OpenRouter API key (sk-or-...)" autocomplete="off" spellcheck="false"/>
+      <button id="load">Load</button>
+      <button class="secondary" id="show" title="Show/hide key">👁</button>
+    </div>
+    <div class="hint">Your key is saved in <b>this browser only</b> (localStorage) and sent <b>only to openrouter.ai</b> — never stored on any server. Create or copy a key at <code>openrouter.ai/settings/keys</code>.</div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="card" id="dash" hidden>
+    <div class="grid">
+      <div class="stat"><div class="label">Available credits</div><div class="value big" id="vAvailable">—</div></div>
+      <div class="stat"><div class="label">Total purchased</div><div class="value" id="vPurchased">—</div></div>
+      <div class="stat"><div class="label">Total used</div><div class="value" id="vUsed">—</div></div>
+      <div class="stat"><div class="label">Key usage</div><div class="value" id="vKeyUsage"><small>—</small></div></div>
+    </div>
+    <div style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span id="pctLabel">—</span><span class="pill" id="tier">—</span>
+      </div>
+      <div class="bar" id="bar"><div id="barFill" style="width:0%"></div></div>
+    </div>
+    <div class="foot">
+      <span><span class="dot" id="dot"></span><span id="status">idle</span></span>
+      <span>Last updated: <span id="updated">—</span></span>
+      <span>Auto-refresh <select id="refresh">
+        <option value="0">off</option><option value="30000">30 s</option>
+        <option value="60000" selected>60 s</option><option value="300000">5 min</option>
+      </select></span>
+    </div>
+  </div>
+
+  <p class="sub" style="margin-top:8px"><a href="https://openrouter.ai/settings/credits" style="color:var(--acc)">Open the official credits page →</a></p>
+</div>
+
+<script>
+var $=function(id){return document.getElementById(id)};
+var keyInput=$('key'), errBox=$('err');
+var KEY_STORE='openrouter_credits_key';
+
+function money(n,cur){ if(n==null||isNaN(n)) return '—';
+  var s=(+n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return (cur?cur+' ':'$')+s; }
+function fmt(n){ return n==null?'—':(+n).toLocaleString('en-US'); }
+
+function setErr(m){ errBox.textContent=m||''; }
+function setStatus(t,on){ $('status').textContent=t; $('dot').className='dot'+(on?' on':''); }
+
+async function orFetch(path){
+  var key=keyInput.value.trim();
+  if(!key){ setErr('Please enter your OpenRouter API key.'); throw new Error('no key'); }
+  var res=await fetch('https://openrouter.ai/api/v1'+path,{headers:{'Authorization':'Bearer '+key}});
+  var text=await res.text(); var data=null;
+  try{ data=JSON.parse(text); }catch(e){}
+  if(!res.ok){
+    var msg=(data&&data.error&&data.error.message)||('HTTP '+res.status);
+    setErr('API error ('+res.status+'): '+msg); throw new Error(msg);
+  }
+  setErr('');
+  return data;
+}
+
+async function refresh(){
+  setStatus('loading…',false);
+  try{
+    var [c,a]=await Promise.all([
+      orFetch('/credits'),
+      orFetch('/auth/key').catch(function(){return null})
+    ]);
+    var cr=c.credits||{};
+    var avail=(cr.total_credits!=null&&cr.total_usage!=null)?(cr.total_credits-cr.total_usage):null;
+    $('vAvailable').textContent=money(avail,'$');
+    $('vPurchased').textContent=money(cr.total_credits,'$');
+    $('vUsed').textContent=money(cr.total_usage,'$');
+    var key=fmt(avail)+' / '+money(cr.total_credits,'$');
+    $('vKeyUsage').innerHTML=money(cr.total_usage,'$')+' <small>used</small>';
+    var usedPct=null;
+    if(cr.total_credits>0) usedPct=Math.min(100,(cr.total_usage/cr.total_credits*100));
+    $('pctLabel').textContent= usedPct==null?'—':usedPct.toFixed(1)+'% of purchased credits used';
+    $('barFill').style.width=(usedPct==null?0:usedPct)+'%';
+    $('bar').className='bar'+(usedPct>85?' warn':'');
+    $('tier').textContent=a&&a.data?((a.data.is_free_tier?'FREE TIER':'PAID')+' · '+(a.data.limit==null?'unlimited':fmt(a.data.limit)+' req')):'';
+    $('dash').hidden=false;
+    $('updated').textContent=new Date().toLocaleTimeString();
+    setStatus('live',true);
+  }catch(e){ setStatus('error',false); }
+}
+
+$('load').addEventListener('click',function(){
+  localStorage.setItem(KEY_STORE,keyInput.value.trim());
+  refresh();
+});
+$('show').addEventListener('click',function(){
+  keyInput.type=keyInput.type==='password'?'text':'password';
+});
+keyInput.addEventListener('keydown',function(e){ if(e.key==='Enter'){ $('load').click(); } });
+$('refresh').addEventListener('change',function(){ scheduleAuto(); });
+var timer=null;
+function scheduleAuto(){
+  if(timer){ clearInterval(timer); timer=null; }
+  var ms=+$('refresh').value; if(ms>0) timer=setInterval(refresh,ms);
+}
+// restore key if saved
+try{ var s=localStorage.getItem(KEY_STORE); if(s){ keyInput.value=s; refresh(); } }catch(e){}
+</script>
+</body>
+</html>
