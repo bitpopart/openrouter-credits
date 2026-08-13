@@ -73,6 +73,7 @@
       </div>
       <div class="bar" id="bar"><div id="barFill" style="width:0%"></div></div>
     </div>
+    <div class="hint" id="hintBal" style="margin-top:14px;color:#ffd75e"></div>
     <div class="foot">
       <span><span class="dot" id="dot"></span><span id="status">idle</span></span>
       <span id="tier"></span>
@@ -125,12 +126,21 @@ async function refresh(){
   var cr=(credits&&credits.credits)||{};
 
   // ---- Available ----
-  var avail=null, availLabel='Available';
-  if(cr.total_credits!=null){ avail=cr.total_credits-(cr.total_usage||0); availLabel='Available (account)'; }
+  var avail=null, availLabel='Available', hintBal='';
+  if(cr.total_credits!=null){
+    avail=cr.total_credits-(cr.total_usage||0);
+    availLabel='Available (account)';
+  }
   else if(d.limit_remaining!=null){ avail=d.limit_remaining; availLabel='Available (this key)'; }
-  else if(d.usage!=null && d.limit==null && d.limit_remaining==null){ avail='unlimited'; availLabel='Available (this key)'; }
+  else if(d.usage!=null && d.limit==null && d.limit_remaining==null){
+    avail=null; availLabel='Available (this key)';
+    hintBal='💡 Your key has no per-key cap, so it can’t report a numeric “available”. To show your real account balance, enter a Management key (normal keys can’t read balances). Create one: openrouter.ai/settings/keys → Manage → “Create management key”.';
+  } else if(credits && credits.__err){
+    hintBal='Account balance unavailable with this key ('+credits.__err+'): use a Management key (openrouter.ai/settings/keys → Manage) to see the real amount.';
+  }
   $('lAvailable').textContent=availLabel;
   $('vAvailable').textContent=fmt(avail);
+  $('hintBal').textContent=hintBal;
 
   // ---- Usage ----
   $('vSpent').textContent=fmt(d.usage);
